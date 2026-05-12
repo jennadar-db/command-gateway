@@ -1,0 +1,25 @@
+services:
+  command-gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      LOG_LEVEL: INFO
+
+  adk-agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    depends_on:
+      - command-gateway
+    environment:
+      MCP_URL: http://command-gateway:8000/mcp
+      REQUESTOR_URL: https://command-gateway-demo.local/requestor
+      ADK_MODEL: ${ADK_MODEL:-gemini-2.5-flash}
+      GOOGLE_GENAI_USE_VERTEXAI: "true"
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
