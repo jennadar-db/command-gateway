@@ -1,127 +1,103 @@
+"""Command Gateway MCP proxy server.
+
+This replaces the original logging-only execute_command gateway with a barrier that:
+- receives operation requests from TSA/ADK,
+- decides READ_ONLY vs WRITE vs BLOCKED,
+- creates approval requests for WRITE commands,
+- routes allowed/approved requests to the downstream Linux MCP server/host.
+"""
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Dict
 
-from mcp import types
-from mcp.server.fastmcp import Context
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+
+from gateway.config import settings
+from gateway.core.policy_engine import PolicyEngine
+from gateway.core.types import CommandRequest
+
+logging.basicConfig(level=settings.log_level)
+logger = logging.getLogger("command_gateway")
+
+mcp = FastMCP("command-gateway", host="0.0.0.0", port=8000)
+policy_engine = PolicyEngine()
 
 
-LOGGER_NAME = "command_gateway"
-logger = logging.getLogger(LOGGER_NAME)
+def _get_headers() -> Dict[str, str]:
+    """Best-effort header extraction.
 
-SESSION_ID_HEADER = "x-session-id"
-REQUESTOR_URL_HEADER = "x-requestor-url"
-
-mcp = FastMCP(
-    "command-gateway",
-    host=os.environ.get("HOST", "0.0.0.0"),
-    port=int(os.environ.get("PORT", "8000")),
-    streamable_http_path="/mcp",
-)
-
-
-def _get_header_from_request(request: Any, name: str) -> str:
-  headers = getattr(request, "headers", {}) or {}
-  return headers.get(name, headers.get(name.lower(), ""))
-
-
-def _get_request_from_context(ctx: Context | Any) -> Any:
-  request_context = getattr(ctx, "request_context", None)
-  return getattr(request_context, "request", None) or getattr(ctx, "request", None)
-
-
-def _simulate_execute_command(
-    *,
-    hostname: str,
-    command: str,
-    request: Any,
-) -> str:
-  session_id = (
-      _get_header_from_request(request, SESSION_ID_HEADER)
-      or "missing-session-id"
-  )
-  requestor_url = (
-      _get_header_from_request(request, REQUESTOR_URL_HEADER)
-      or "missing-requestor-url"
-  )
-
-  logger.info(
-      "Simulated command request: hostname=%s command=%r session_id=%s"
-      " requestor_url=%s",
-      hostname,
-      command,
-      session_id,
-      requestor_url,
-  )
-
-  return (
-      "Command request accepted for logging only; command was not"
-      f" executed. hostname={hostname}, command={command},"
-      f" session_id={session_id}, requestor_url={requestor_url}"
-  )
+    FastMCP streamable HTTP makes headers available depending on SDK/runtime version.
+    Keep this lightweight; absence of headers should not break local testing.
+    """
+    return {}
 
 
 @mcp.tool()
-async def execute_command(
+async def submit_operation(
+    ticket_id: str,
+    technology: str,
     hostname: str,
     command: str,
-    ctx: Context,
-) -> str:
-  """Log a command request without executing it."""
-  request = _get_request_from_context(ctx)
-  return _simulate_execute_command(
-      hostname=hostname,
-      command=command,
-      request=request,
-  )
+    reason: str,
+) -> Dict[str, Any]:
+    """Submit a command/operation request to the Command Gateway.
+
+    The agent must not provide downstream MCP tool names, approval ticket ids, or
+    approval hashes. The Gateway owns classification, approval and routing.
+    """
+    request = CommandRequest(
+        ticket_id=ticket_id,
+        technology=technology,
+        hostname=hostname,
+        command=command,
+        reason=reason,
+    )
+    logger.info(
+        "Received submit_operation: ticket_id=%s technology=%s hostname=%s command=%r reason=%r",
+        ticket_id, technology, hostname, command, reason,
+    )
+    return await policy_engine.submit_operation(request)
 
 
-async def handle_list_tools(
-    ctx: Any | None,
-    params: types.PaginatedRequestParams | None,
-) -> types.ListToolsResult:
-  del ctx, params
-  return types.ListToolsResult(tools=await mcp.list_tools())
+@mcp.tool()
+async def check_approval_and_execute(approval_request_id: str) -> Dict[str, Any]:
+    """Execute a previously submitted WRITE operation after human approval.
+
+    The agent only sends approval_request_id. The Gateway retrieves the original
+    command and validates approval before execution.
+    """
+    logger.info("Received check_approval_and_execute: approval_request_id=%s", approval_request_id)
+    return await policy_engine.check_approval_and_execute(approval_request_id)
 
 
-async def handle_call_tool(
-    ctx: Any,
-    params: types.CallToolRequestParams,
-) -> types.CallToolResult:
-  arguments = params.arguments or {}
-  hostname = str(arguments.get("hostname", ""))
-  command = str(arguments.get("command", ""))
-  request = _get_request_from_context(ctx)
-  text = _simulate_execute_command(
-      hostname=hostname,
-      command=command,
-      request=request,
-  )
+@mcp.tool()
+def approve_request_for_local_test(approval_request_id: str) -> Dict[str, Any]:
+    """Local-only helper to simulate HITL approval in APPROVAL_MODE=mock.
 
-  return types.CallToolResult(
-      content=[
-          types.TextContent(
-              type="text",
-              text=text,
-          )
-      ]
-  )
+    Remove or disable this tool before production.
+    """
+    if settings.approval_mode != "mock":
+        return {"status": "blocked", "reason": "Local approval helper is only allowed in mock mode."}
+    logger.info("Mock-approving approval_request_id=%s", approval_request_id)
+    return policy_engine.approve_request_for_local_test(approval_request_id)
 
 
-def create_app():
-  return mcp.streamable_http_app()
-
-
-def main() -> None:
-  logging.basicConfig(
-      level=os.environ.get("LOG_LEVEL", "INFO").upper(),
-      format="%(asctime)s %(levelname)s %(name)s %(message)s",
-  )
-  mcp.run(transport="streamable-http")
+@mcp.tool()
+def get_gateway_status() -> Dict[str, Any]:
+    """Return basic gateway routing/config status."""
+    return {
+        "status": "ok",
+        "service": "command-gateway",
+        "approval_mode": settings.approval_mode,
+        "linux_mcp_url_configured": bool(settings.linux_mcp_url),
+        "linux_mcp_execute_url_configured": bool(settings.linux_mcp_execute_url),
+    }
 
 
 if __name__ == "__main__":
-  main()
+    # Streamable HTTP server. Matches your existing /mcp gateway behavior.
+    mcp.run(transport="streamable-http")

@@ -33,6 +33,23 @@ Then run:
 docker compose up --build adk-agent
 ```
 
+### Optional: Proxy or Internal PyPI Mirror
+
+If Docker builds cannot reach public PyPI in your environment, export these
+before running `docker compose up --build adk-agent`:
+
+```bash
+export HTTP_PROXY="http://squid-proxy.gcp.dbgcloud.io:3128"
+export HTTPS_PROXY="http://squid-proxy.gcp.dbgcloud.io:3128"
+export NO_PROXY="localhost,127.0.0.1,command-gateway"
+
+# Optional internal package index
+export PIP_INDEX_URL="https://pypi.my-company.example/simple"
+export PIP_TRUSTED_HOST="pypi.my-company.example"
+```
+
+These values are passed to both image builds and running containers.
+
 The agent runner creates an in-memory session and asks:
 
 ```text

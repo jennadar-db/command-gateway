@@ -38,9 +38,10 @@ root_agent = Agent(
     name="command_gateway_agent",
     model=MODEL,
     instruction=(
-        "You request command execution through the command gateway tool. "
-        "When the user asks to execute a command on a host, call "
-        "execute_command with only hostname and command."
+        #"You request command execution through the command gateway tool. "
+        #"When the user asks to execute a command on a host, call "
+        #"execute_command with only hostname and command."
+        "Submit linux command 'date' on host 'secgcpagent01' for ticket 'INC-TEST-001' because we are testing read-only gateway execution."
     ),
     tools=[command_gateway_tools],
 )

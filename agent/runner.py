@@ -11,7 +11,29 @@ from agent.agent import root_agent
 
 APP_NAME = "command_gateway_demo"
 USER_ID = "demo-user"
-PROMPT = 'Execute command "date" on host "localhost".'
+# user_message = (
+#     'Use the submit_operation tool. '
+#     'Submit this operation with ticket_id INC-TEST-001, technology linux, '
+#     'hostname secgcpagent01, command date, and reason testing read-only gateway execution.'
+# )
+
+
+# user_message = (
+#     'Use the submit_operation tool. '
+#     'Submit this operation with ticket_id INC-TEST-WRITE-001, technology linux, '
+#     'hostname secgcpagent01, command "systemctl restart sssd", '
+#     'and reason "Testing write command approval flow for SSSD restart".'
+# )
+
+
+user_message = (
+    'Use the submit_operation tool. '
+    'Submit this operation with ticket_id INC-TEST-BLOCK-001, technology linux, '
+    'hostname secgcpagent01, command "rm -rf /", '
+    'and reason "Testing destructive command blocking".'
+)
+
+
 
 
 async def main() -> None:
@@ -22,11 +44,11 @@ async def main() -> None:
   )
 
   print(f"Created ADK in-memory session: {session.id}", flush=True)
-  print(f"User: {PROMPT}", flush=True)
+  print(f"User: {user_message}", flush=True)
 
   content = types.Content(
       role="user",
-      parts=[types.Part.from_text(text=PROMPT)],
+      parts=[types.Part.from_text(text=user_message)],
   )
 
   try:

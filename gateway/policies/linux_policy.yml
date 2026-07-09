@@ -1,0 +1,280 @@
+technology: linux
+version: 1
+
+description: >
+  Linux command policy for Command Gateway.
+  Gateway uses this policy to classify agent-proposed commands as READ_ONLY,
+  WRITE, BLOCKED, or UNKNOWN.
+
+default_decision:
+  unknown_command: block
+
+read_only:
+  description: >
+    Commands and tools that are considered diagnostic/read-only.
+    These can be executed directly by routing to the Linux MCP server.
+
+  commands:
+    - name: date
+      pattern: "^date$"
+      selected_mcp_tool: "linux_execute_command"
+      risk_level: low
+
+    - name: hostname
+      pattern: "^hostname$"
+      selected_mcp_tool: "hostname_check"
+      risk_level: low
+
+    - name: uptime
+      pattern: "^uptime$"
+      selected_mcp_tool: "uptime_check"
+      risk_level: low
+
+    - name: whoami
+      pattern: "^whoami$"
+      selected_mcp_tool: "linux_execute_command"
+      risk_level: low
+
+    - name: id
+      pattern: "^id$"
+      selected_mcp_tool: "linux_execute_command"
+      risk_level: low
+
+    - name: disk_usage
+      pattern: "^df\\s+-h$"
+      selected_mcp_tool: "disk_check"
+      risk_level: low
+
+    - name: memory_usage
+      pattern: "^free\\s+-(m|h)$"
+      selected_mcp_tool: "memory_check"
+      risk_level: low
+
+    - name: process_list
+      pattern: "^ps\\s+aux$"
+      selected_mcp_tool: "process_check"
+      risk_level: low
+
+    - name: service_status
+      pattern: "^systemctl\\s+status\\s+[a-zA-Z0-9_.@-]+(\\s+--no-pager)?$"
+      selected_mcp_tool: "service_status"
+      risk_level: low
+
+    - name: journal_read
+      pattern: "^journalctl\\s+-u\\s+[a-zA-Z0-9_.@-]+(\\s+--no-pager)?(\\s+-n\\s+[0-9]+)?$"
+      selected_mcp_tool: "journal_read"
+      risk_level: low
+
+    - name: log_tail
+      pattern: "^tail\\s+-n\\s+[0-9]+\\s+/var/log/[a-zA-Z0-9_./-]+$"
+      selected_mcp_tool: "log_tail"
+      risk_level: low
+
+    - name: port_check_ss
+      pattern: "^ss\\s+-tulpen$"
+      selected_mcp_tool: "port_check"
+      risk_level: low
+
+    - name: port_check_netstat
+      pattern: "^netstat\\s+-tulpen$"
+      selected_mcp_tool: "port_check"
+      risk_level: low
+
+    - name: dns_check_dig
+      pattern: "^dig\\s+[a-zA-Z0-9_.-]+$"
+      selected_mcp_tool: "dns_check"
+      risk_level: low
+
+    - name: dns_check_nslookup
+      pattern: "^nslookup\\s+[a-zA-Z0-9_.-]+$"
+      selected_mcp_tool: "dns_check"
+      risk_level: low
+
+    - name: ping_check
+      pattern: "^ping\\s+-c\\s+[0-9]+\\s+[a-zA-Z0-9_.-]+$"
+      selected_mcp_tool: "network_check"
+      risk_level: low
+
+    - name: ad_check
+      pattern: "^ad_check(\\s+--[a-zA-Z0-9_-]+(\\s+[a-zA-Z0-9_.@:-]+)?)*$"
+      selected_mcp_tool: "ad_check"
+      risk_level: low
+
+write:
+  description: >
+    Commands that modify host/service/process state.
+    These must create a Jira child approval ticket before execution.
+
+  commands:
+    - name: service_restart_systemctl
+      pattern: "^systemctl\\s+restart\\s+[a-zA-Z0-9_.@-]+$"
+      selected_mcp_tool: "service_restart"
+      risk_level: medium
+      approval_required: true
+
+    - name: service_reload_systemctl
+      pattern: "^systemctl\\s+reload\\s+[a-zA-Z0-9_.@-]+$"
+      selected_mcp_tool: "service_reload"
+      risk_level: medium
+      approval_required: true
+
+    - name: service_restart_legacy
+      pattern: "^service\\s+[a-zA-Z0-9_.@-]+\\s+restart$"
+      selected_mcp_tool: "service_restart"
+      risk_level: medium
+      approval_required: true
+
+    - name: service_reload_legacy
+      pattern: "^service\\s+[a-zA-Z0-9_.@-]+\\s+reload$"
+      selected_mcp_tool: "service_reload"
+      risk_level: medium
+      approval_required: true
+
+    - name: process_kill
+      pattern: "^kill\\s+-?[0-9]+\\s+[0-9]+$"
+      selected_mcp_tool: "process_kill"
+      risk_level: high
+      approval_required: true
+
+    - name: process_pkill
+      pattern: "^pkill\\s+[a-zA-Z0-9_.@-]+$"
+      selected_mcp_tool: "process_kill"
+      risk_level: high
+      approval_required: true
+
+blocked:
+  description: >
+    Commands that should never be executed and should not create approval tickets.
+
+  commands:
+    - name: destructive_root_delete
+      pattern: "rm\\s+-rf\\s+/"
+      reason: "Destructive recursive delete from root"
+
+    - name: destructive_root_wildcard_delete
+      pattern: "rm\\s+-rf\\s+/\\*"
+      reason: "Destructive recursive delete from root wildcard"
+
+    - name: destructive_critical_directory_delete
+      pattern: "rm\\s+-rf\\s+/(etc|var|usr|home|boot)(\\s|$)"
+      reason: "Destructive delete of critical system directory"
+
+    - name: find_delete
+      pattern: "find\\s+/.*-delete"
+      reason: "Mass delete using find"
+
+    - name: find_exec_rm
+      pattern: "find\\s+/.*-exec\\s+rm"
+      reason: "Mass delete using find -exec rm"
+
+    - name: filesystem_format
+      pattern: "\\bmkfs(\\.|\\s|$)"
+      reason: "Filesystem formatting"
+
+    - name: mkswap
+      pattern: "\\bmkswap\\b"
+      reason: "Swap formatting"
+
+    - name: partition_tools
+      pattern: "\\bfdisk\\b|\\bparted\\b|\\bsfdisk\\b"
+      reason: "Partition table modification"
+
+    - name: dd_raw_copy
+      pattern: "\\bdd\\s+if="
+      reason: "Raw disk copy/write risk"
+
+    - name: dd_to_block_device
+      pattern: "\\bdd\\s+.*of=/dev/"
+      reason: "Raw write to block device"
+
+    - name: device_wipe
+      pattern: "\\bwipefs\\b|\\bblkdiscard\\b"
+      reason: "Filesystem/device wipe"
+
+    - name: shadow_access
+      pattern: "/etc/shadow|/etc/gshadow"
+      reason: "Credential database access"
+
+    - name: ssh_private_key_access
+      pattern: "/root/\\.ssh/id_rsa|\\.ssh/id_rsa"
+      reason: "Private SSH key access"
+
+    - name: kerberos_keytab_access
+      pattern: "/etc/krb5\\.keytab"
+      reason: "Kerberos keytab access"
+
+    - name: sssd_secret_access
+      pattern: "/var/lib/sss/secrets"
+      reason: "SSSD secret access"
+
+    - name: curl_pipe_shell
+      pattern: "curl.*\\|\\s*(bash|sh)"
+      reason: "Remote download piped to shell"
+
+    - name: wget_pipe_shell
+      pattern: "wget.*\\|\\s*(bash|sh)"
+      reason: "Remote download piped to shell"
+
+    - name: process_substitution_shell
+      pattern: "bash\\s+<\\(|sh\\s+<\\("
+      reason: "Process substitution script execution"
+
+    - name: netcat_reverse_shell
+      pattern: "\\bnc\\s+.*-e\\b|\\bncat\\s+.*-e\\b"
+      reason: "Netcat reverse shell pattern"
+
+    - name: interactive_shell
+      pattern: "bash\\s+-i"
+      reason: "Interactive shell pattern"
+
+    - name: dev_tcp
+      pattern: "/dev/tcp/"
+      reason: "Shell TCP redirection pattern"
+
+    - name: reboot_shutdown
+      pattern: "\\b(reboot|shutdown|halt|poweroff)\\b"
+      reason: "Host reboot/shutdown command"
+
+    - name: auditd_tampering
+      pattern: "systemctl\\s+(stop|disable)\\s+auditd"
+      reason: "Audit service tampering"
+
+    - name: history_clear
+      pattern: "history\\s+-c"
+      reason: "Shell history deletion"
+
+    - name: log_truncate
+      pattern: "truncate\\s+-s\\s+0\\s+/var/log/"
+      reason: "Log tampering"
+
+    - name: log_delete
+      pattern: "rm\\s+/var/log/"
+      reason: "Log deletion"
+
+    - name: shell_semicolon
+      pattern: ";"
+      reason: "Shell command chaining is blocked"
+
+    - name: shell_and_chain
+      pattern: "&&"
+      reason: "Shell command chaining is blocked"
+
+    - name: shell_or_chain
+      pattern: "\\|\\|"
+      reason: "Shell conditional chaining is blocked"
+
+    - name: shell_backticks
+      pattern: "`"
+      reason: "Shell backtick expansion is blocked"
+
+    - name: shell_command_substitution
+      pattern: "\\$\\("
+      reason: "Shell command substitution is blocked"
+
+    - name: shell_redirection
+      pattern: ">|<"
+      reason: "Shell redirection is blocked"
+
+    - name: multiline_command
+      pattern: "[\\n\\r]"
+      reason: "Multiline command is blocked"

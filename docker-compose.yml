@@ -3,15 +3,32 @@ services:
     build:
       context: .
       dockerfile: gateway/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     ports:
       - "8000:8000"
+    depends_on:
+      - linux-mcp
     environment:
       LOG_LEVEL: INFO
+      LINUX_MCP_URL: ${LINUX_MCP_URL}
+      LINUX_MCP_EXECUTE_URL: ${LINUX_MCP_EXECUTE_URL}
+      APPROVAL_MODE: ${APPROVAL_MODE:-mock}
+      APPROVAL_STORE_PATH: ${APPROVAL_STORE_PATH:-/tmp/command_gateway_approvals.json}      
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      NO_PROXY: ${NO_PROXY}
 
   adk-agent:
     build:
       context: .
       dockerfile: agent/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
     depends_on:
       - command-gateway
     environment:
@@ -21,5 +38,27 @@ services:
       GOOGLE_GENAI_USE_VERTEXAI: "true"
       GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT}
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      NO_PROXY: ${NO_PROXY}
     volumes:
       - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+
+  linux-mcp:
+    build:
+      context: .
+      dockerfile: linux_mcp/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
+        http_proxy: ${http_proxy}
+        https_proxy: ${https_proxy}
+        no_proxy: ${no_proxy}
+    ports:
+      - "9001:9001"
+    environment:
+      LOG_LEVEL: INFO
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      NO_PROXY: ${NO_PROXY}
