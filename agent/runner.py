@@ -26,13 +26,19 @@ USER_ID = "demo-user"
 # )
 
 
+# user_message = (
+#     'Use the submit_operation tool. '
+#     'Submit this operation with ticket_id INC-TEST-BLOCK-001, technology linux, '
+#     'hostname secgcpagent01, command "rm -rf /", '
+#     'and reason "Testing destructive command blocking".'
+# )
+
 user_message = (
     'Use the submit_operation tool. '
-    'Submit this operation with ticket_id INC-TEST-BLOCK-001, technology linux, '
-    'hostname secgcpagent01, command "rm -rf /", '
-    'and reason "Testing destructive command blocking".'
+    'Submit this operation with ticket_id INC-TEST-UNKNOWN-001, technology linux, '
+    'hostname secgcpagent01, command "/usr/local/bin/ad_check.sh -h vmtsecurr", '
+    'and reason "Testing AD connectivity check through the command gateway".'
 )
-
 
 
 

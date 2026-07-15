@@ -67,8 +67,8 @@ READ_ONLY_PATTERNS: list[tuple[str, str]] = [
     (r"^dig\s+[a-zA-Z0-9_.-]+$", "dns_check"),
     (r"^nslookup\s+[a-zA-Z0-9_.-]+$", "dns_check"),
     (r"^ping\s+-c\s+[0-9]+\s+[a-zA-Z0-9_.-]+$", "network_check"),
-    # ad_check is assumed read-only for MVP. Tighten flags as your real tool contract evolves.
-    (r"^ad_check(\s+--[a-zA-Z0-9_-]+(\s+[a-zA-Z0-9_.@:-]+)?)*$", "ad_check"),
+    # ad_check is assumed read-only for MVP. Allow common script-path variants.
+    (r"^(?:[a-zA-Z0-9_./-]+/)?ad_check(?:\.sh)?(\s+--[a-zA-Z0-9_-]+(?:[=\s][a-zA-Z0-9_./:@\\=-]+)?)*$", "ad_check"),
 ]
 
 WRITE_PATTERNS: list[tuple[str, str, str]] = [

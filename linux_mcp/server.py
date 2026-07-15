@@ -29,11 +29,18 @@ SAFE_EXACT_COMMANDS = {
     "df -h": ["df", "-h"],
     "free -m": ["free", "-m"],
     "free -h": ["free", "-h"],
+    "ad_check.sh -h": ["ad_check.sh", "-h"],
 }
 
 
 def is_ad_check(command: str) -> bool:
-    return command.strip().startswith("ad_check")
+    normalized = " ".join(command.strip().split())
+    if not normalized:
+        return False
+
+    first_token = normalized.split(" ", 1)[0]
+    basename = first_token.rsplit("/", 1)[-1]
+    return basename in {"ad_check", "ad_check.sh"}
 
 
 def run_safe_command(command: str) -> Dict[str, Any]:
