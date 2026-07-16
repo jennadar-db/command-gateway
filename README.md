@@ -16,8 +16,8 @@ Docker Compose starts three services:
   - Google ADK-based agent container.
   - Connects to the gateway MCP endpoint and sends gateway headers.
 - linux-mcp
-  - FastAPI service on port 9001.
-  - Executes only a strict allowlist of safe commands for demo purposes.
+  - MCP Streamable HTTP server on port 9001.
+  - Exposes Linux diagnostic/remediation tools with strict command validation and allowlisting for demo safety.
 
 ## Request Flow
 
@@ -29,7 +29,7 @@ Docker Compose starts three services:
    - reason
 2. Gateway classifies command by deterministic regex policy.
 3. Outcome by class:
-   - READ_ONLY: routed immediately to linux-mcp execute endpoint.
+  - READ_ONLY: routed immediately to linux-mcp MCP tool.
    - WRITE: approval request is created and stored locally.
    - BLOCKED or UNKNOWN: rejected by policy.
 4. For WRITE operations, agent calls check_approval_and_execute after approval.
@@ -62,7 +62,6 @@ Core runtime values:
 
 ```bash
 export LINUX_MCP_URL="http://linux-mcp:9001/mcp"
-export LINUX_MCP_EXECUTE_URL="http://linux-mcp:9001/execute"
 export APPROVAL_MODE="mock"  # mock | jira
 export APPROVAL_STORE_PATH="/tmp/command_gateway_approvals.json"
 export ADK_MODEL="gemini-2.5-flash"
@@ -101,10 +100,23 @@ docker compose up --build adk-agent
 
 ## Verify Service Health
 
-Linux executor health:
+Linux MCP status via tool call:
 
 ```bash
-curl -s http://localhost:9001/health
+python - <<'PY'
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+async def main():
+  async with streamablehttp_client("http://localhost:9001/mcp") as (r, w, _):
+    async with ClientSession(r, w) as session:
+      await session.initialize()
+      result = await session.call_tool("get_linux_mcp_status", {})
+      print(result)
+
+asyncio.run(main())
+PY
 ```
 
 Gateway status via MCP tool can be checked through the connected agent,
@@ -159,9 +171,10 @@ Approvals are single-use and persisted in APPROVAL_STORE_PATH.
 
 linux-mcp is intentionally strict for demo safety.
 
-- Exact command allowlist execution for a small set of commands (for example: date, hostname, uptime, whoami, id, df -h, free -m, free -h).
+- Linux tools validate the command against strict tool-specific regex policy.
+- Execution is additionally restricted to a small exact allowlist for demo safety (for example: date, hostname, uptime, whoami, id, df -h, free -m, free -h, ps aux).
 - ad_check commands return a mocked success response.
-- Any non-allowlisted execute request returns HTTP 403.
+- Any non-allowlisted command is blocked with an explanatory result.
 
 ## Known Limitations
 

@@ -10,9 +10,8 @@ from dataclasses import dataclass
 class Settings:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
-    # Linux MCP can expose either /mcp only, or a simpler /execute endpoint for MVP routing.
+    # Downstream Linux MCP streamable HTTP endpoint, for example http://linux-mcp:9001/mcp.
     linux_mcp_url: str = os.getenv("LINUX_MCP_URL", "")
-    linux_mcp_execute_url: str = os.getenv("LINUX_MCP_EXECUTE_URL", "")
 
     # Approval/Jira settings. MVP defaults to mock mode.
     approval_mode: str = os.getenv("APPROVAL_MODE", "mock")  # mock | jira

@@ -94,7 +94,6 @@ def get_gateway_status() -> Dict[str, Any]:
         "service": "command-gateway",
         "approval_mode": settings.approval_mode,
         "linux_mcp_url_configured": bool(settings.linux_mcp_url),
-        "linux_mcp_execute_url_configured": bool(settings.linux_mcp_execute_url),
     }
 
 

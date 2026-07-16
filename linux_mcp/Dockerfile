@@ -39,4 +39,4 @@ COPY linux_mcp /app/linux_mcp
 
 EXPOSE 9001
 
-CMD ["uvicorn", "linux_mcp.server:app", "--host", "0.0.0.0", "--port", "9001"]
+CMD ["python", "linux_mcp/server.py"]

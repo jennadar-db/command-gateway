@@ -14,7 +14,6 @@ services:
     environment:
       LOG_LEVEL: INFO
       LINUX_MCP_URL: ${LINUX_MCP_URL}
-      LINUX_MCP_EXECUTE_URL: ${LINUX_MCP_EXECUTE_URL}
       APPROVAL_MODE: ${APPROVAL_MODE:-mock}
       APPROVAL_STORE_PATH: ${APPROVAL_STORE_PATH:-/tmp/command_gateway_approvals.json}      
       HTTP_PROXY: ${HTTP_PROXY}

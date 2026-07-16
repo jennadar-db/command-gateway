@@ -1,4 +1,2 @@
 
-fastapi
-uvicorn
-pydantic
+mcp[cli]>=1.27.0,<2
