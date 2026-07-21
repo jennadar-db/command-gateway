@@ -38,3 +38,14 @@ dist/
 # Local Codex workspace metadata
 .agents/
 .codex/
+
+#Certs
+certs/
+.cert*
+.pem*
+*.cert
+*.pem
+
+#do not upload infrastructure files as of now 
+infra/terraform
+*.tf
