@@ -8,9 +8,12 @@ ARG NO_PROXY
 ARG PIP_INDEX_URL
 ARG PIP_TRUSTED_HOST
 
-# Proxy vars are set only during build for pip/apt. They are NOT persisted
-# into the runtime image ENV so Cloud Run can reach GCP metadata and
-# downstream services without a corporate proxy.
+ENV HTTP_PROXY=${HTTP_PROXY} \
+	HTTPS_PROXY=${HTTPS_PROXY} \
+	NO_PROXY=${NO_PROXY} \
+	PIP_INDEX_URL=${PIP_INDEX_URL} \
+	PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
+
 COPY gateway/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir \
     --trusted-host pypi.org \

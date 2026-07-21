@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import logging
-import traceback
 from typing import Any, Dict
 
 import httpx
-
-logger = logging.getLogger("command_gateway.linux_mcp_client")
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
@@ -17,26 +13,6 @@ from gateway.config import settings
 
 def _derive_mcp_url() -> str:
     return settings.linux_mcp_url
-
-
-def _get_identity_token(audience: str) -> str | None:
-    """Fetch a Cloud Run identity token for service-to-service auth.
-
-    Returns None when running locally (no metadata server available).
-    """
-    try:
-        resp = httpx.get(
-            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity",
-            params={"audience": audience, "format": "full"},
-            headers={"Metadata-Flavor": "Google"},
-            timeout=2.0,
-        )
-        resp.raise_for_status()
-        logger.info("Identity token fetched successfully for audience=%s", audience)
-        return resp.text.strip()
-    except Exception as exc:
-        logger.warning("Identity token fetch failed (audience=%s): %s", audience, exc)
-        return None
 
 
 def _coerce_call_tool_result(result: Any) -> Dict[str, Any]:
@@ -93,20 +69,8 @@ async def execute_linux_tool(
         "reason": reason,
     }
 
-    # Derive audience from the base URL (scheme + host only, no path).
-    parsed = httpx.URL(mcp_url)
-    audience = f"{parsed.scheme}://{parsed.host}"
-
-    extra_headers: Dict[str, str] = {}
-    token = _get_identity_token(audience)
-    if token:
-        extra_headers["Authorization"] = f"Bearer {token}"
-        logger.info("Using identity token for linux-mcp call (audience=%s)", audience)
-    else:
-        logger.warning("No identity token available; calling linux-mcp without auth (audience=%s)", audience)
-
     try:
-        async with streamablehttp_client(mcp_url, headers=extra_headers) as (read_stream, write_stream, _):
+        async with streamablehttp_client(mcp_url) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 result = await session.call_tool(selected_mcp_tool, payload)
@@ -118,14 +82,8 @@ async def execute_linux_tool(
             "reason": f"Failed to call Linux MCP server over HTTP: {exc}",
         }
     except Exception as exc:  # pragma: no cover - safeguard for SDK/runtime mismatch
-        causes = []
-        if hasattr(exc, "exceptions"):
-            for sub in exc.exceptions:
-                causes.append(f"{type(sub).__name__}: {sub}")
-        detail = "; ".join(causes) if causes else str(exc)
-        logger.error("linux-mcp call failed: %s\n%s", detail, traceback.format_exc())
         return {
             "status": "failed",
             "execution_performed": False,
-            "reason": f"Failed to call Linux MCP tool {selected_mcp_tool}: {detail}",
+            "reason": f"Failed to call Linux MCP tool {selected_mcp_tool}: {exc}",
         }
